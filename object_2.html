@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Real-Time Object Detection</title>
+</head>
+<body>
+  <h1>Real-Time Object Detection with Speech</h1>
+  <video id="webcam" width="640" height="480" autoplay></video>
+  <canvas id="output" width="640" height="480"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <script>
+    // Function to start the webcam
+    async function setupCamera() {
+      const constraints = { video: true, audio: false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const video = document.getElementById('webcam');
+      video.srcObject = stream;
+
+      return new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve(video);
+        };
+      });
+    }
+
+    // Initialize object detection model
+    async function init() {
+      const video = await setupCamera();
+      video.play();
+
+      const model = await cocoSsd.load();
+      detectFrame(video, model);
+    }
+
+    // Function to speak a detected object
+    function speakDetectedObject(objectName) {
+      const speechSynthesis = window.speechSynthesis;
+      const utterance = new SpeechSynthesisUtterance(objectName);
+      speechSynthesis.speak(utterance);
+    }
+
+    // Detect objects in each video frame
+    async function detectFrame(video, model) {
+      const canvas = document.getElementById('output');
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      async function animate() {
+        const predictions = await model.detect(video);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw bounding boxes and labels for detected objects
+        predictions.forEach((prediction) => {
+          context.beginPath();
+          context.rect(
+            prediction.bbox[0],
+            prediction.bbox[1],
+            prediction.bbox[2],
+            prediction.bbox[3]
+          );
+          context.lineWidth = 2;
+          context.strokeStyle = 'red';
+          context.fillStyle = 'red';
+          context.stroke();
+          context.fillText(`${prediction.class} (${Math.round(prediction.score * 100)}%)`, prediction.bbox[0], prediction.bbox[1]);
+
+          // Speak the detected object name with a slight delay
+          setTimeout(() => {
+            speakDetectedObject(`I see a ${prediction.class}`);
+          }, 1000); // Delay in milliseconds (adjust as needed)
+        });
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    // Initialize the application
+    init();
+  </script>
+</body>
+</html>
